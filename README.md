@@ -40,3 +40,4 @@ To Do:
 - figure out how to load all 90K features
 - figure out which features are most important and whittle down
 - figure out if different brains activate different sensors differently... i.e. how do features line up???
+-- Read the PDF - discusses one way of dealing with feature sets that shift

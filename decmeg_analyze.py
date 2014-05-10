@@ -22,28 +22,35 @@ import re
 in_dir = '/Users/dan/dev/datasci/kaggle/decmeg2014/'
 
 # file_suffix = '.mat.pca.csv'
-file_suffix = '.mat2.csv'
+file_suffix = '.mat.csv'
 
-def load_data(dir):
+def load_data(dir, num_files=100, num_samples=None):
     print('loading data from ' + dir)
     files = os.listdir(dir)
     files.sort()
     # concat all files
     data = []
+    file_ct = 0
     for file in files:
         if file.endswith(file_suffix) == False:
             continue
         print('loading ' + file)
+        ndata = np.loadtxt(dir + '/' + file, delimiter=',')
         if len(data) == 0:
-            data = np.loadtxt(dir + '/' + file, delimiter=',')
+            data = ndata if num_samples == None else ndata[0:num_samples, :]
         else:
-            data = np.vstack([data, np.loadtxt(dir + '/' + file, delimiter=',')])
+            data = np.vstack([data, ndata if num_samples == None else ndata[0:num_samples, :]])
+
+        file_ct += 1
+        if file_ct >= num_files:
+            break
+
     return data
 
 
 def evaluate_models(train_dir):
     print('reading files')
-    data = load_data(train_dir)
+    data = load_data(train_dir, 3, 100)
 
     print('raw data ' + str(data.shape))
     X = data[:,0:-1]
@@ -51,14 +58,14 @@ def evaluate_models(train_dir):
     y = data[:,-1::]
     print('y ' + str(y.shape))
 
-    for C in [.01,.1,1,10]:
-        for p in ['l1','l2']:
-            print('C=' + str(C) + ' p=' + p)
-            clf = LogisticRegression(C=C,penalty=p)
-            print('cross validating')
-            scores = sl.cross_validation.cross_val_score(clf, X, y.ravel(), scoring='accuracy')
-            mscores = np.mean(scores)
-            print('ref xval scores=' + str(scores) + ' | mean=' + str(mscores))
+    # for C in [.01,.1,1,10]:
+    #     for p in ['l1','l2']:
+    #         print('C=' + str(C) + ' p=' + p)
+    #         clf = LogisticRegression(C=C,penalty=p)
+    #         print('cross validating')
+    #         scores = sl.cross_validation.cross_val_score(clf, X, y.ravel(), scoring='accuracy')
+    #         mscores = np.mean(scores)
+    #         print('ref xval scores=' + str(scores) + ' | mean=' + str(mscores))
 
     # random forest - not working so well on this
     # for e in [5,10,25]:
@@ -84,6 +91,7 @@ def evaluate_models(train_dir):
     #             #     best_auc = mscores
 
     # create training and test data (.75/.25 split)
+    clf = LogisticRegression(C=10,penalty='l1')
     X_train, X_test, y_train, y_test = sl.cross_validation.train_test_split(X, y)
     clf.fit(X_train, y_train.ravel())
     z = clf.predict(X_test)
