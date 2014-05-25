@@ -10,9 +10,12 @@ DEC: this didn't work at all - ignore this file
 Input: decmeg matlab files
 
 Output:
-1) diff'd time series (delta between each two time frames)
-2) descretized time series (deltas converted to binary with threshold N)
+- CSV file for each subject with:
+ -- m rows = # Samples (test runs)
+ -- n cols = # Sensors (with mean values for time series)
+note: the time series datapoints before the application of stimulus have been removed
 
+Note: the intuition is to try to summarize each sensor, but I don't think this is the right approach.
 '''
 
 import pandas as pd
@@ -53,11 +56,19 @@ def munge(in_dir):
                 tmax = fmat['tmax']
                 print('f=' + str(sfreq) + ' | min=' + str(tmin) + ' | max=' + str(tmax))
 
+                # calculate range
+                start = int(abs(tmin)*sfreq)
+                stop = start + int((tmax * sfreq))
+
+                # X = 3D raw feature data (n_Samples x n_Sensors x n_TimePoints)
                 X = np.array(fmat['X'])
-                Xs = np.array(X[:,:,75::])
+                # Xs = 3D raw feature data from stimulus forward (n_Samples x n_Sensors x n_TimePoints)
+                Xs = np.array(X[:,:,start:stop])
+                # Xf = 2D scaled feature data from stimulus forward with each Sensor time series averaged (n_Samples x n_Sensors)
                 Xf = np.zeros((np.shape(Xs)[0], np.shape(Xs)[1]))
                 for idx in range(0,np.shape(Xs)[0]):
-                    Xf[idx] = np.mean(Xs[idx], axis=1)
+                    Xf[idx] = np.mean(Xs[idx], axis=1) # gets the mean of each sensor's time series
+                # scale/normalize the data
                 Xf -= Xf.mean(0)
                 Xf = np.nan_to_num(Xf / Xf.std(0))
                 print('X=' + str(np.shape(X)) + ' | Xs=' + str(np.shape(Xs)) + ' | Xf=' + str(np.shape(Xf)))
@@ -65,6 +76,7 @@ def munge(in_dir):
                 y = []
                 data = []
 
+                # append labels for train data
                 if dir == '/train':
                     y = np.array(fmat['y'])
                     print('y=' + str(np.shape(y)))
