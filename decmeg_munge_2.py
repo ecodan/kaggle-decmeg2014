@@ -5,6 +5,8 @@ Step 1 in pipeline
 
 This approach averages the brain data for each time slice accross all sensors
 
+DEC: this didn't work at all - ignore this file
+
 Input: decmeg matlab files
 
 Output:

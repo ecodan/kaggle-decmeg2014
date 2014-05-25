@@ -34,6 +34,9 @@ Notes:
 
 - Tried running on average of time series and average accross all sensors and ended up with ~50% on both
 
+- Based on research paper noting that physioligical differences cause "feature shifts" betweek patients, PCA is a dead approach
+
+
 
 To Do:
 - try different PCA sizes

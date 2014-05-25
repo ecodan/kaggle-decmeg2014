@@ -13,7 +13,6 @@ Output:
 
 import os
 from datetime import datetime
-
 import numpy as np
 from sklearn.decomposition import PCA
 from scipy.io import loadmat
@@ -50,8 +49,12 @@ def munge(in_dir):
                 tmax = fmat['tmax']
                 print('f=' + str(sfreq) + ' | min=' + str(tmin) + ' | max=' + str(tmax))
 
+                # calculate range
+                start = int(abs(tmin)*sfreq)
+                stop = start + int((tmax * sfreq))
+
                 X = np.array(fmat['X'])
-                Xs = np.array(X[:,:,75::])
+                Xs = np.array(X[:,:,start:stop])
                 Xf = np.reshape(Xs, (np.shape(Xs)[0], np.shape(Xs)[1] * np.shape(Xs)[2]))
                 Xf -= Xf.mean(0)
                 Xf = np.nan_to_num(Xf / Xf.std(0))
@@ -70,21 +73,22 @@ def munge(in_dir):
                 print('data=' + str(np.shape(data)))
                 np.savetxt(out_dir + file + '.csv', data, delimiter=',',fmt='%1.3f')
 
-                if i == 1:
-                    # train PCA
-                    print('training PCA')
-                    pca.fit(Xf)
-
-                print('transforming to PCA')
-                Xp = pca.transform(Xf)
-                Xp -= Xp.mean(0)
-                Xp = np.nan_to_num(Xp / Xp.std(0))
-                if dir == '/train':
-                    data = np.hstack([Xp, y])
-                else:
-                    data = Xp
-                print('data PCA=' + str(np.shape(data)))
-                np.savetxt(out_dir + file + '.pca.csv', data, delimiter=',',fmt='%1.3f')
+                # dont think PCA will work due to feture shift between subjects, so disabling
+                # if i == 1:
+                #     # train PCA
+                #     print('training PCA')
+                #     pca.fit(Xf)
+                #
+                # print('transforming to PCA')
+                # Xp = pca.transform(Xf)
+                # Xp -= Xp.mean(0)
+                # Xp = np.nan_to_num(Xp / Xp.std(0))
+                # if dir == '/train':
+                #     data = np.hstack([Xp, y])
+                # else:
+                #     data = Xp
+                # print('data PCA=' + str(np.shape(data)))
+                # np.savetxt(out_dir + file + '.pca.csv', data, delimiter=',',fmt='%1.3f')
 
 
 munge(in_dir)

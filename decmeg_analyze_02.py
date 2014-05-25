@@ -18,13 +18,32 @@ from sklearn.decomposition import ProbabilisticPCA
 import sklearn.preprocessing as pre
 import re
 
+'''
+Trying out a completely different approach.
 
+Step 1: capture statistics about the shape of the sensor curves broken out as follows:
+- break each sensor timeline into t segments
+- assign each sensor a bin number s by rank of standalone prediction ability
+- gather some aggregate stats about each prediction bin and time segment that describe that segment
+- create a flattened feature vector for each sample that is s * t(*stats) long (+ label)
+
+Step 2: look at the difference
+
+Step 3: see how well segment can be predicted
+
+Step 4: see how well the observed image can be predicted
+
+Note: didn't work so well...
+
+'''
 in_dir = '/Users/dan/dev/datasci/kaggle/decmeg2014/'
 
-# file_suffix = '.mat.pca.csv'
-file_suffix = '.mat.csv'
+# file_suffix = '.mat.csv'
+file_suffix = '.mat.csv.binned.csv'
+# file_suffix = '.mat.short.csv'
 
 len_ts = 250 # length of time series
+num_sensors = 306
 
 def load_data(dir, num_files=100, num_samples=None):
     print('loading data from ' + dir)
@@ -49,6 +68,7 @@ def load_data(dir, num_files=100, num_samples=None):
 
     return data
 
+
 # pulls all columns except last (y) column from data matrix
 def get_features_all(data):
     return data[:,0:-1]
@@ -64,10 +84,85 @@ def get_features_subset_01(data, sensors):
     return ret
 
 
-# play-around method for trying different models
+def segment_and_bin(train_dir):
+    print('starting segment_and_bin...')
+
+    files = os.listdir(train_dir)
+    files.sort()
+    file_ct = 0
+
+    s = 10
+    t = 25
+    m = 6
+    sensor_bin_size = num_sensors / s
+    time_bin_size = len_ts / t
+
+    # load output from above
+    print('loading and calculating rankings...')
+    eval = np.loadtxt(train_dir + '/feature_eval.csv', delimiter=',')
+
+    # create ranked matrix
+    reval = np.zeros(eval.shape)
+    for idx in range(0,len(eval)):
+        temp = eval[idx].argsort()
+        ranks = np.empty(len(temp),int)
+        reval[idx][temp] = np.arange(len(temp))
+
+    for file in files:
+        if file.endswith(file_suffix) == False:
+            continue
+        print('loading ' + file)
+        # data heirarchy is sample -> sensor -> time
+        ndata = np.loadtxt(train_dir + '/' + file, delimiter=',')
+        print('raw data ' + str(ndata.shape))
+        X = ndata[:, 0:-1]
+        y = ndata[:,-1::]
+
+        # new heirarchy is sample -> sensor bin -> time bin -> measurement
+        res = np.zeros((len(y), s, t, m))
+        res_o = np.zeros((len(y), s * t * m))
+
+        num_samples = len(X)
+
+        for idx in range(0, num_samples):
+            sensor_data = X[idx]
+
+            sensor_data = sensor_data.reshape((num_sensors, len_ts))
+
+            # group sensors into bins and loop
+            for iS in range(0,s):
+                r_start = iS * sensor_bin_size
+                r_stop = iS * sensor_bin_size + sensor_bin_size
+                bsensors = np.where(np.all([reval[file_ct] >= r_start, reval[file_ct] < r_stop], axis=0))
+                dsensors = sensor_data[bsensors]
+
+                # loop through time bins and collect metrics
+                for iT in range(0,t):
+                    t_start = iT * time_bin_size
+                    t_end = iT * time_bin_size + time_bin_size
+                    tsensors = dsensors[:, t_start:t_end]
+                    res[idx][iS][iT][0] = tsensors.mean()
+                    res[idx][iS][iT][1] = tsensors.std()
+                    res[idx][iS][iT][2] = tsensors.min()
+                    res[idx][iS][iT][3] = tsensors.max()
+                    res[idx][iS][iT][4] = np.percentile(tsensors, 25)
+                    res[idx][iS][iT][5] = np.percentile(tsensors, 75)
+
+
+        file_ct += 1
+
+        for idx in range(0, num_samples):
+            res_o[idx] = res[idx].ravel()
+        res_o = np.hstack((res_o, y))
+        np.savetxt(train_dir + file + '.binned.csv', res_o, delimiter=',')
+        print('results=\n' + str(res))
+
+
 def evaluate_models(train_dir):
     print('reading files')
-    data = load_data(train_dir, 3, 100)
+
+    # data = np.loadtxt(train_dir + '/train_subject01.mat.csv.binned.csv', delimiter=',')
+    data = load_data(train_dir)
 
     print('raw data ' + str(data.shape))
     X = get_features_all(data)
@@ -116,51 +211,6 @@ def evaluate_models(train_dir):
     print ('TRAIN class report:\n' + str(sl.metrics.classification_report(y_test, z)))
 
 
-def train(train_dir):
-    print ('training...')
-    data = load_data(train_dir)
+# segment_and_bin(in_dir + 'train/out/')
 
-    X = data[:,0:-1]
-    print('X ' + str(X.shape))
-    y = data[:,-1::]
-    print('y ' + str(y.shape))
-
-    clf = LogisticRegression(C=1,penalty='l2')
-    clf.fit(X, y.ravel())
-
-    X_train, X_test, y_train, y_test = sl.cross_validation.train_test_split(X, y)
-    z = clf.predict(X_test)
-    print ('TRAIN conf matrix:\n' + str(sl.metrics.confusion_matrix(y_test, z)))
-    print ('TRAIN class report:\n' + str(sl.metrics.classification_report(y_test, z)))
-
-    return clf
-
-def predict(test_dir, clf):
-    print ('predicting...')
-
-    files = os.listdir(test_dir)
-    files.sort()
-    output = np.zeros((4058,2), dtype=np.int)
-    idx = 0
-    for file in files:
-        if file.endswith(file_suffix) == False:
-            continue
-        print('loading ' + file)
-        data = np.loadtxt(test_dir + '/' + file, delimiter=',')
-        z = clf.predict(data)
-        m = re.match("test_subject(.*)\.mat", file)
-        uid = m.group(1)
-        userid = int(uid)
-        for i in range(0, len(z)):
-            output[idx][0] = userid * 1000 + i
-            output[idx][1] = z[i]
-            idx += 1
-    df = pd.DataFrame(output)
-    df.columns = ['Id', 'Prediction']
-    df.to_csv(test_dir + '/predictions.csv', index=False, header=True)
-
-# evaluate_models(in_dir + 'train/out/')
-
-# clf = train(in_dir + '/train/out')
-
-# predict(in_dir + '/test/out', clf)
+evaluate_models(in_dir + 'train/out/')
