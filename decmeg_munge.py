@@ -7,7 +7,7 @@ Input: decmeg matlab files
 
 Output:
 - CSV file for each subject with:
- -- m rows = # Samples (test runs)
+ -- m rows = # Trials (test runs)
  -- n cols = # Sensors x # Time Series datapoints
 note: the time series datapoints before the application of stimulus have been removed
 
@@ -75,7 +75,9 @@ def munge(in_dir):
                     print('y=' + str(np.shape(y)))
                     data = np.hstack([Xf, y])
                 else:
-                    data = Xf
+                    id = np.array(fmat['Id'])
+                    print('id=' + str(np.shape(id)))
+                    data = np.hstack([Xf, id])
 
                 print('data=' + str(np.shape(data)))
                 np.savetxt(out_dir + file + '.csv', data, delimiter=',',fmt='%1.3f')

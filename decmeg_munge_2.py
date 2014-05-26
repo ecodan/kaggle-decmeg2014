@@ -11,7 +11,7 @@ Input: decmeg matlab files
 
 Output:
 - CSV file for each subject with:
- -- m rows = # Samples (test runs)
+ -- m rows = # Trials (test runs)
  -- n cols = # Sensors (with mean values for time series)
 note: the time series datapoints before the application of stimulus have been removed
 

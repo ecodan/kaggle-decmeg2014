@@ -147,19 +147,15 @@ def predict(test_dir, clf):
             continue
         print('loading ' + file)
         data = np.loadtxt(test_dir + '/' + file, delimiter=',')
-        z = clf.predict(data)
-        m = re.match("test_subject(.*)\.mat", file)
-        uid = m.group(1)
-        userid = int(uid)
-        for i in range(0, len(z)):
-            output[idx][0] = userid * 1000 + i
-            output[idx][1] = z[i]
-            idx += 1
+        X = data[:,0:-1]
+        z = clf.predict(X)
+        userids = data[:,-1]
+        output = np.nstack((z, userids))
     df = pd.DataFrame(output)
     df.columns = ['Id', 'Prediction']
     df.to_csv(test_dir + '/predictions.csv', index=False, header=True)
 
-# evaluate_models(in_dir + 'train/out/')
+evaluate_models(in_dir + 'train/out/')
 
 # clf = train(in_dir + '/train/out')
 

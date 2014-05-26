@@ -20,7 +20,10 @@ import re
 import decmeg_utils as du
 
 '''
-This approach tries to reorder the sensors by individual ranking to keep the feature columns intact
+This approach tries to reorder the sensors by individual ranking to keep the feature columns intact.
+
+Note: might need to keep the sensor triads together (per competition description - three sensor clusters)
+
 '''
 
 in_dir = '/Users/dan/dev/datasci/kaggle/decmeg2014/'
