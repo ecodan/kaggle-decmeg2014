@@ -18,6 +18,8 @@ from sklearn.decomposition import ProbabilisticPCA
 import sklearn.preprocessing as pre
 import re
 import decmeg_utils as du
+from sklearn import grid_search
+from sklearn import svm
 
 '''
 This approach tries to follow the gist of the research paper.
@@ -41,7 +43,6 @@ def train(train_dir):
     print ('training...')
 
     classifiers = []
-    meta_clf = LogisticRegression(C=1,penalty='l2')
 
     meta_test = np.zeros((1600, 76501))
     # load each file and train the subject classifier
@@ -63,13 +64,18 @@ def train(train_dir):
         rows += len(y)
         print(file + ' training L1 classifier...')
         clf = LogisticRegression(C=1,penalty='l2')
-        # clf.fit(X, y.ravel())
+        # params = {'penalty':['l1','l2'], 'C':[.1,1,10]}
+        # gclf = grid_search.GridSearchCV(clf, params, scoring='accuracy', n_jobs=2, verbose=1)
+        # gclf.fit(X, y)
+        # print(file + ' L1 grid scores:\n' + str(gclf.grid_scores_))
+        # clf = gclf.best_estimator_
+        clf.fit(X, y.ravel())
 
         X_train, X_test, y_train, y_test = sl.cross_validation.train_test_split(X, y, test_size=100)
-        clf.fit(X_train, y_train)
+        # clf.fit(X_train, y_train)
         z = clf.predict(X_test)
-        print (file + 'TRAIN conf matrix:\n' + str(sl.metrics.confusion_matrix(y_test, z)))
-        print (file + 'TRAIN class report:\n' + str(sl.metrics.classification_report(y_test, z)))
+        print (file + ' TRAIN conf matrix:\n' + str(sl.metrics.confusion_matrix(y_test, z)))
+        print (file + ' TRAIN class report:\n' + str(sl.metrics.classification_report(y_test, z)))
 
         i1 = fidx*100
         i2 = (fidx*100) + 100
@@ -102,8 +108,19 @@ def train(train_dir):
     print('L2 X shape=' + str(X.shape))
     y = meta_features[:,-1]
     print('L2 y shape=' + str(y.shape))
+
+    # params = {'kernel':('linear', 'rbf'), 'C':[1, 10]}
+    # clf = svm.SVC()
+    # gclf = grid_search.GridSearchCV(clf, params, scoring='accuracy', n_jobs=2, verbose=1)
+    # gclf.fit(X, y)
+    # print('L2 grid scores:\n' + str(gclf.grid_scores_))
+    # meta_clf = gclf.best_estimator_
+    meta_clf = RandomForestClassifier()
+    meta_clf.fit(X, y)
+
+
     X_train, X_test, y_train, y_test = sl.cross_validation.train_test_split(X, y, test_size=0.2)
-    meta_clf.fit(X_train, y_train)
+    # meta_clf.fit(X_train, y_train)
     z = meta_clf.predict(X_test)
     print ('L2 conf matrix:\n' + str(sl.metrics.confusion_matrix(y_test, z)))
     print ('L2 class report:\n' + str(sl.metrics.classification_report(y_test, z)))
