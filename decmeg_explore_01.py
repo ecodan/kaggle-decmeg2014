@@ -5,6 +5,7 @@ import numpy as np
 import sklearn as sl
 import decmeg_analyze_05 as dma05
 from pylab import *
+from sklearn.linear_model import LogisticRegression
 
 '''
 These methods explore the similarities and differences between sensors and trials in the training set.
@@ -19,7 +20,7 @@ file_suffix = '.mat.csv'
 len_ts = 250 # length of time series
 num_sensors = 306
 
-def explore_sensors(train_dir):
+def explore_sensor_correlation(train_dir):
 
     print ('explore_sensors...')
     files = os.listdir(train_dir)
@@ -55,6 +56,46 @@ def explore_sensors(train_dir):
         break
 
 
+def find_best_sensors(train_dir):
+
+    print ('explore_sensors...')
+    files = os.listdir(train_dir)
+    files.sort()
+    rows = 0
+    fidx = 0
+
+    res = np.zeros((num_sensors, 16))
+    res_rank = np.zeros((num_sensors, 16))
+    for file in files:
+        if file.endswith(file_suffix) == False:
+            continue
+        print('loading ' + file)
+        data = np.loadtxt(train_dir + '/' + file, delimiter=',')
+        y = data[:,-1]
+        for s in range(0, num_sensors):
+            print('starting sensor ' + str(s))
+            start = s * len_ts
+            end = start + len_ts
+            X = data[:,start:end]
+            X_train, X_test, y_train, y_test = sl.cross_validation.train_test_split(X, y, test_size=100)
+            clf = LogisticRegression(C=1,penalty='l2')
+            clf.fit(X_train, y_train)
+            score = clf.score(X_test, y_test)
+            res[s, fidx] = score
+        res_rank[:,fidx] = res[:,fidx].argsort().argsort() # rank the sensors
+        fidx += 1
+
+    np.savetxt( train_dir + '/sensor_compare.csv', res, delimiter=',')
+    np.savetxt( train_dir + '/sensor_compare_ranks.csv', res_rank, delimiter=',')
+
+    sensors = np.arange(1,307)
+    best_ranks = res_rank.min(axis=1)
+
+    print('excludes 100:\n' + str(sensors[best_ranks > 100]))
+    print('excludes 75:\n' + str(sensors[best_ranks > 75]))
+    print('excludes 50:\n' + str(sensors[best_ranks > 50]))
+    print('excludes 25:\n' + str(sensors[best_ranks > 25]))
+
 # see comment below for results
 def explore_trials(train_dir, shrinkage=25):
 
@@ -68,6 +109,8 @@ def explore_trials(train_dir, shrinkage=25):
             continue
         print('loading ' + file)
         data = np.loadtxt(train_dir + '/' + file, delimiter=',')
+        # try making it all positive
+        data = np.abs(data)
         y = data[:,-1]
         # shrink
         clumps = len_ts / shrinkage
@@ -89,9 +132,9 @@ def explore_trials(train_dir, shrinkage=25):
         sensor_res[1,1] = np.mean(sensor_grid[1][1])
         print('file ' + str(file) + ':\n' + str(sensor_res))
 
-        # figure()
-        # boxplot([sensor_grid[1][1],sensor_grid[1][0],sensor_grid[0][1],sensor_grid[0][0]])
-        # show()
+        figure()
+        boxplot([sensor_grid[1][1],sensor_grid[1][0],sensor_grid[0][1],sensor_grid[0][0]])
+        show()
 
         # break
 
@@ -164,10 +207,11 @@ def xval_correlation_01(train_dir):
         print('best match for ' + file + ' is comp ' + str(bc_idx) + ' with score ' + str(bc))
 
 
-# explore_sensors(in_dir + '/train/out')
-explore_trials(in_dir + '/train/out')
+# explore_sensor_correlation(in_dir + '/train/out')
+# explore_trials(in_dir + '/train/out')
 # explore_trials_accross_subjects(in_dir + '/train/out')
 # xval_correlation_01(in_dir + '/train/out')
+find_best_sensors(in_dir + '/train/out')
 
 '''
 result of full subject/trial correlation (no shrinkage):
